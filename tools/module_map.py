@@ -3,7 +3,8 @@
 
 A function naming a .cpp file anchors that module. Unanchored functions lying
 between two anchors of the same module are attributed to it ('inferred'); all
-others stay unassigned. Attribution is a work-splitting aid, not proof.
+others stay unassigned. Functions from RUNTIME_START up are the Watcom runtime
+('address'). Attribution is a work-splitting aid, not proof.
 
 usage: module_map.py <index.jsonl> <out.json>
 """
@@ -13,12 +14,15 @@ import sys
 
 F = sorted((json.loads(l) for l in open(sys.argv[1])), key=lambda f: int(f['addr'], 16))
 CPP = re.compile(r'^[a-z0-9_]+\.cpp$', re.I)
+RUNTIME_START = 0x6addc  # __I4FD; see tools/ghidra/rtl_names.tsv
 
 for f in F:
     names = {s.lower() for s in f['strings'] if CPP.match(s)}
     f['anchors'] = sorted(names)
     f['module'] = f['anchors'][0] if len(names) == 1 else None
     f['basis'] = 'anchor' if f['module'] else ('conflict' if names else None)
+    if int(f['addr'], 16) >= RUNTIME_START and not f['module']:
+        f['module'], f['basis'] = 'watcom_rtl', 'address'
 
 last = None
 for i, f in enumerate(F):

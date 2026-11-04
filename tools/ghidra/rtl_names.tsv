@@ -1,0 +1,307 @@
+addr	name	confidence	convention_notes	evidence
+6addc	__I4FD	high	int EAX -> double EDX:EAX	coordinator; confirmed: sign test, BSR normalize; falls into __U4FD
+6ade9	__U4FD	high	unsigned EAX -> double EDX:EAX	coordinator; confirmed: exp bias 0x3ff, BSR
+6ae1c	__FDS	high	EDX:EAX - ECX:EBX -> EDX:EAX	coordinator; confirmed: flips ECX sign then __FDA
+6ae22	__FDA	high	EDX:EAX + ECX:EBX -> EDX:EAX; preserves regs	coordinator; determinism: FP path selected by 0x825fd (_real87) - x87 vs soft (CMP 0x825fd at 6ae3b)
+6afd9	__FDM	high	EDX:EAX * ECX:EBX -> EDX:EAX	coordinator; determinism: FP path selected by 0x825fd (_real87) - x87 vs soft (6aff3); overflow -> F8OverFlow 6d0a5
+6b176	__sincos	medium	x EDX:EAX; EBX selector 0=sin 1=tan 2=cos; returns EDX:EAX	soft sin/cos/tan: reduce via __fprem by pi/4 0x3fe921fb54442d18; poly tables 0x816cc/0x81714. Name recalled, behavior read. determinism: soft path of sin/cos differs bit-wise from x87 path 6d3ed
+6b3ac	sinf_thunk	medium	float EAX; not_in_index	FSFD, sin, FDFS
+6b3be	sin	high	double sin(double x /*EDX:EAX*/) -> EDX:EAX	calls 6d3ed x87 else 6b176 EBX=0. determinism: FP path selected by 0x825fd (_real87) - x87 vs soft
+6b3d8	cosf_thunk	medium	float EAX; not_in_index	FSFD, cos, FDFS
+6b3e5	cos	high	double cos(double x /*EDX:EAX*/) -> EDX:EAX	calls 6d3e4 x87 else 6b176 EBX=2. determinism: FP path selected by 0x825fd (_real87) - x87 vs soft
+6b402	tanf_thunk	medium	float EAX; not_in_index	FSFD, 6b40f, FDFS
+6b40f	tan	high	double EDX:EAX; not_in_index	6d486 x87 else 6b176 EBX=1. determinism: FP path selected by 0x825fd (_real87) - x87 vs soft
+6b42c	__FDFS	high	double EDX:EAX -> float EAX	coordinator; confirmed: inf 0x7f800000; rounds via +0x20000000 (fp_differential: 0 mismatches)
+6b478	__FSFD	high	float EAX -> double EDX:EAX	coordinator; confirmed: denormal loop, bias 0x38000000
+6b4d6	__FDI4	high	double EDX:EAX -> int EAX (trunc); AL=0x1f then 6b4dc	coordinator; confirmed. software conversion on both paths, no FCW use
+6b4da	__FDU4	high	double EDX:EAX -> unsigned EAX; AL=0x20	coordinator; confirmed; shared body 6b4dc
+6b574	utoa	medium	char *utoa(unsigned v /*EAX*/, char *buf /*EDX*/, unsigned radix /*EBX*/)	DIV radix loop, digit table at 6b54f, reversed copy; reached from itoa only; returns buf. Copy of 6c35d shape
+6b5be	itoa	high	char *itoa(int v /*EAX*/, char *buf /*EDX*/, int radix /*EBX*/)	radix 10 negative -> "-"; __prtf calls this for int %d, 6c3a6 for %ld
+6b5da	__U4FS	high	unsigned EAX -> float EAX	coordinator; confirmed: BSR, exp 0x7f + n (no rounding: ROL then mask)
+6b605	__I4FS	high	int EAX -> float EAX	coordinator; confirmed: neg, __U4FS, OR sign
+6b616	__FSS	high	float EAX - float EDX -> EAX	flips EDX sign, falls into __FSA
+6b620	__FSA	high	float EAX + float EDX -> EAX	zero shortcut then JMP [0x82598]. determinism: FP path selected by 0x825fd (_real87) - x87 vs soft; ptr lazily bound by 6b82d
+6b631	__FSA_x87	high	float EAX,EDX; not_in_index	FLD,FADD; bound into 0x82598. determinism: x87
+6b63c	__FS_x87_return	medium	internal tail of x87 float op	FSTP to stack, WAIT, POP EAX, 0x80000000 -> 0; JMPed from 6b631/6b702/6b77e. Descriptive name
+6b64f	__FSA_soft	high	float EAX,EDX; not_in_index	bound into 0x82598 when no x87; 6b712 FSM soft, 6b78e FSD soft
+6b6f1	__FSM	high	float EAX * float EDX -> EAX	coordinator; confirmed: zero shortcut, JMP [0x8259c]. determinism: FP path selected by 0x825fd (_real87) - x87 vs soft
+6b702	__FSM_x87	high	float EAX * float EDX -> EAX (via stack)	FLD/FMUL then 6b63c; installed in 0x8259c when x87 present. determinism: x87 op
+6b778	__FSD	high	float EAX / float EDX -> EAX	JMP [0x825a0]; body 6b77e FDIV or soft 6b78e. determinism: FP path selected by 0x825fd (_real87) - x87 vs soft
+6b77e	__FSD_x87	high	float EAX,EDX; not_in_index	FLD,FDIV; bound into 0x825a0. determinism: x87
+6b822	__FSD_lazy_bind	high	thunk; initial value of 0x825a0	CALL 6b82d then JMP [0x825a0]; siblings 6b80c (FSA), 6b817 (FSM). Descriptive name
+6b82d	__FS_bind_dispatch	high	no args, preserves EAX	writes 0x82598/0x8259c/0x825a0 to x87 (6b631,6b702,6b77e) or soft (6b64f,6b712,6b78e) per 0x825fd. Descriptive name. determinism: FP path selected by 0x825fd (_real87) - x87 vs soft
+6b878	__FSI4	high	float EAX -> int EAX (trunc); CL=0x9e	coordinator; confirmed
+6b882	__FSU4	high	float EAX -> unsigned EAX; CL=0x9f	coordinator; confirmed
+6b8b4	__FS2I_signed	medium	float EAX, CL=limit -> int EAX	negative -> negate 6b8c0 result; descriptive; shared by __FSI4/__FSU4 and unreferenced 6b88c.. stubs
+6b8c0	__FS2I_core	medium	float EAX (sign ignored), CL=limit -> EAX	exponent shift truncation, saturates on overflow; descriptive
+6b900	memset	high	void *memset(void *dst /*EAX*/, int c /*DL*/, size_t n /*EBX*/); preserves EAX,ECX,clobbers EDX	coordinator; confirmed: replicates DL to 4 bytes then __STOSB 6d4f0
+6b920	strcmp	high	int strcmp(const char *a /*EAX*/, const char *b /*EDX*/)	word-at-a-time 0xfefefeff zero test, returns -1/0/1
+6b9c2	__FDC	high	compare EDX:EAX, ECX:EBX -> EAX -1/0/1 and flags	treats denormal as 0, sign logic. No x87 path
+6b9fc	__wcpp_undefined_cdtor	medium	noreturn; not_in_index	"undefined constructor or destructor called!" via 6d594
+6ba10	operator_delete	medium	void operator delete(void *p /*EAX*/)	NULL test then tail JMP _nfree 6bf16. NULL test is redundant for free since __MemFree already handles NULL, which suggests delete; free() still fits and coordinator called it free wrapper. libc free callers go to 6bf16 directly
+6ba1c	operator_new	high	void *operator new(size_t n /*EAX*/)	coordinator; confirmed: 0 -> 1, malloc, handler loop 0x968e4 (arg size) then 0x968e0 (no arg)
+6ba67	open	high	int open(const char *path, int oflag, ...) cdecl stack-only	pushes pmode, shflag 0, oflag, path; calls sopen 6ba8b
+6ba8b	sopen	high	int sopen(const char *path, int oflag, int shflag, int pmode) cdecl	INT21 3D open; O_CREAT 0x20 -> 3C creat+close+reopen; O_EXCL 0x400 errno 7; O_TRUNC 0x40 via 40h write 0 bytes; __SetIOMode. Coordinator __doopen-like: actual __doopen is 6c9a4
+6bc50	__set_binary	medium	int __set_binary(int fd /*EAX*/)	sets iomode 0x40; if device 44/00 then 44/01 OR raw 0x20. No direct callers (setmode-like alternatives)
+6bcb5	lseek	high	long lseek(int fd /*EAX*/, long off /*EDX*/, int whence /*EBX*/)	INT21 42h; -1 + __set_errno_dos
+6bd09	sprintf	high	int sprintf(char *buf, const char *fmt, ...) cdecl stack-only	coordinator; confirmed: __prtf with mem putc 6bcf6, NUL terminate
+6bd39	read	high	int read(int fd /*EAX*/, void *buf /*EDX*/, unsigned n /*EBX*/)	coordinator; confirmed: INT21 3Fh; binary mode direct; text strips CR, stops at ^Z with lseek back
+6be4c	tell	high	long tell(int fd /*EAX*/)	lseek(fd,0,SEEK_CUR)
+6be5d	filelength	high	long filelength(int fd /*EAX*/)	lseek CUR, END, restore; returns END
+6be9a	close	high	int close(int fd /*EAX*/)	coordinator; confirmed: tail JMP __close 6e0c0
+6bea0	__wcpp_4_ctor_array_	medium	void *ctor(void *arr /*EAX*/, unsigned n /*EDX*/, RTTI *sig /*EBX*/)	registers array rw block, calls ctor from sig+1 per element stepping sig+0xd; deregisters. Exact suffix unverified
+6bee8	__wcpp_4_dtor_array_	medium	void *dtor(void *arr /*EAX*/, unsigned n /*EDX*/, RTTI *sig /*EBX*/)	registers then runs 6e34c unwinder with count; recursively used by unwinder. Exact suffix unverified
+6bf16	_nfree	high	void _nfree(void *p /*EAX*/); preserves all	coordinator; confirmed: finds heap segment in list 0x825c0, __MemFree, updates rover 0x825c8
+6bf74	atoi	medium	int atoi(const char *s /*EAX*/)	skip ctype bit 2 (0x81794), sign, decimal. atoi/atol are identical on 32-bit: 6cb80 is the other; which is which unknown
+6bfcc	__wcpp_4_module_dtor_	medium	no args; registered at fini priority 40 (0x82df0)	drains module list 0x828f0 into RW list 0x968c8 running unwinder 6e356; deregisters
+6c00f	__wcpp_eh_init_a	low	init pri 10; not_in_index	[0x968f8]=0x825a4; 6c209 and 6e116 sibling; fills EH vtable 0x968ec..
+6c01a	__wcpp_4_mod_register_	medium	void reg(RW_DTREG *rw /*EAX*/)	pushes block on list 0x828f0; called by game static init 2b064
+6c02a	write	high	int write(int fd /*EAX*/, const void *buf /*EDX*/, unsigned n /*EBX*/)	INT21 40h; O_APPEND 0x80 seeks end; text LF->CRLF buffer 512/128 on stack; short write errno 0xc
+6c209	__wcpp_eh_init_b	low	init pri 10; not_in_index	[0x968fc]=0x825b0
+6c214	__wcpp_4_lcl_register_	medium	void reg(RW_DTREG *rw /*EAX*/)	tail JMP 6c01a; separate name inferred because of the separate entry, game C++ callers. Could equally be a mod_register alias
+6c219	__get_rand_seed_ptr	high	unsigned *f(void) -> EAX=0x825bc	returns &seed. Descriptive name. determinism: RNG state at 0x825bc, default 1
+6c21f	rand	high	int rand(void) -> 0..0x7fff; preserves EDX	seed = seed*0x41c64e6d + 0x3039; (seed>>16)&0x7fff. determinism: RNG; only call site 4bc99
+6c243	srand	high	void srand(unsigned seed /*EAX*/)	stores 0x825bc. determinism: RNG; call sites 2e5f9 (seed from [0x84398]) and 4bc94 (seed from 55b60, whose body has INT 1Ah at 55baa; return value not traced)
+6c253	malloc	high	void *malloc(size_t n /*EAX*/) (_nmalloc)	coordinator; confirmed: size 3-rounded min 12, rover walk list 0x825c0, __MemAllocator 6e37c, grows via __ExpandDGROUP 6e904. NOT deterministic in address across hosts: heap layout depends on DPMI/DOS grant
+6c35d	ultoa	high	char *ultoa(unsigned long v /*EAX*/, char *buf /*EDX*/, unsigned radix /*EBX*/)	called from __prtf %x/%u directly; DIV loop, digit table 6c338
+6c3a6	ltoa	high	char *ltoa(long v /*EAX*/, char *buf /*EDX*/, int radix /*EBX*/)	__prtf %ld and %o paths; radix 10 negative handling
+6c3c2	__FDD	high	EDX:EAX / ECX:EBX -> EDX:EAX; preserves ECX,EBX	divide-by-zero -> 6d099; determinism: FP path selected by 0x825fd (_real87) - x87 vs soft (6c3dc)
+6c5bc	_cstart_	high	ELF entry (0x6c5bc)	JMP 6c636 over "WATCOM C/C++32 Run-Time system... 1988-1994" banner and "con" string at 6c632
+6c636	__cstart_body	high	process entry; no args	INT21 30h extender probe "PHAR" 0x4458/0x4243; INT21 FF00 DX=78 DOS/4G; DPMI 31/0006; copies cmdline; scans env for NO87= into 0x82924; BSS clear; __InitRtns(0xff); __CMain. Includes __exit at 6c84d. determinism: NO87 env changes FP path
+6c84f	__do_exit_with_msg__	high	void f(const char *msg /*EAX*/, unsigned status /*EDX*/) noreturn	opens "con" INT21 3D01, writes msg 40h; falls to __exit (6c872: __FiniRtns(0,255), INT21 4C)
+6c888	__GETDS	high	no args; sets DS from CS:[0x6c630]; preserves regs	DS reload stub, for interrupt handlers
+6c891	_dos_getvect	high	void __far *_dos_getvect(unsigned n /*EAX*/) -> DX:EAX	INT21 35h, or 2502h under Phar Lap. determinism: used by game to save INT 8 and INT 9 (382b8,381e3)
+6c8c5	_dos_setvect	high	void _dos_setvect(unsigned n /*EAX*/, handler far /*CX:EBX*/)	INT21 25h, or 2504 under Phar Lap. determinism: game installs INT 8 handler 0x38228 (382a8) and INT 9 0x38170; game programs PIT ch0 itself
+6c8f0	__open_flags	medium	unsigned f(const char *mode /*EAX*/) -> file flags	parses r/w/a +,b,t; errno 9 on bad; default mode var 0x828d5
+6c9a4	__doopen	high	FILE *f(path /*EAX*/, mode /*EDX*/, shflag /*EBX*/, FILE *fp /*ECX*/)	__open_flags, then sopen 6ba8b with O_ flags and 0x180 pmode; __freefp on fail; fseek end for a; __chktty. Fills fp+0x10 handle
+6ca6c	_fsopen	high	FILE *_fsopen(path /*EAX*/, mode /*EDX*/, int sh /*EBX*/)	__allocfp then __doopen
+6ca87	fopen	high	FILE *fopen(path /*EAX*/, mode /*EDX*/)	_fsopen with sh=0
+6caf9	freopen	medium	name EAX, mode EDX, fp EBX; not_in_index	6ca91 unlink/check, then __doopen; not in index
+6cb1d	fgets	high	char *fgets(char *buf /*EAX*/, int n /*EDX*/, FILE *fp /*EBX*/)	loops fgetc to LF; NUL terminate; flags save/restore
+6cb80	atol	medium	long atol(const char *s /*EAX*/)	byte-identical logic to 6bf74. One of atoi/atol, assignment arbitrary
+6cbd7	strncmp	high	int strncmp(a /*EAX*/, b /*EDX*/, size_t n /*EBX*/)	bytewise diff with count
+6cc00	sound	high	void sound(unsigned hz /*EAX*/)	0x1234dc/hz; ports 0x61, 0x43(0xb6), 0x42. determinism: touches PIT ch2 only (speaker), not ch0
+6cc41	nosound	high	void nosound(void)	port 0x61 AND 0xfc. determinism: speaker only
+6cc52	printf	high	int printf(const char *fmt, ...) cdecl stack-only	__fprtf(stdout=0x826e6,...)
+6cc74	__null_rtn	high	no-op RET	default for exit pointers 0x825d4/d8/dc
+6cc75	exit	high	void exit(int status /*EAX*/) noreturn	calls [0x825d4],[0x825d8], then _exit 6cc8d. Reached by __CMain and game
+6cc8d	_exit	high	void _exit(int status /*EAX*/) noreturn	[0x825d8],[0x825dc], JMP 6c84d __exit
+6cca4	sqrtf_thunk	medium	float EAX; not_in_index	FSFD, sqrt, FDFS (bytes at 6cca3 start 1 off)
+6ccb6	sqrt	high	double sqrt(double x /*EDX:EAX*/)	negative -> __math1err code 0x2043; FSQRT when x87, else soft 6f30c. determinism: FP path selected by 0x825fd (_real87) - x87 vs soft
+6cd10	remove	medium	int remove(const char *path /*EAX*/)	tail JMP 6f53e unlink. remove/unlink are alias pair; assignment by call graph
+6cd16	__FSC	high	compare float EAX, EDX -> EAX -1/0/1 and flags	sign and subtract logic
+6cd30	__is_root_dir	medium	int f(const char *path /*EAX*/)	"\" or "X:\" -> 1. Descriptive
+6cd5b	__opendir	high	DIR *f(path /*EAX*/, attr /*DL*/)	INT21 1A set DTA, 4E findfirst; dir -> "*.*"; malloc 0x2e copy
+6ce4f	opendir	high	DIR *opendir(const char *path /*EAX*/)	attr 0x16; calls __opendir
+6ce5c	readdir	high	struct dirent *readdir(DIR *d /*EAX*/)	first-entry flag at +0x2d; INT21 1A, 4F
+6ce96	closedir	high	int closedir(DIR *d /*EAX*/)	validates flag +0x2d; _nfree
+6ceb2	int386	high	int int386(int n /*EAX*/, regs *in /*EDX*/, regs *out /*EBX*/)	segread to local, then int386x. Only caller 56b44 uses INT 10h
+6cecd	system	high	int system(const char *cmd /*EAX*/)	COMSPEC or COMMAND.COM, __Slash_C, spawnlp; NULL -> 1
+6cf36	int386x	high	int int386x(int n /*EAX*/, in /*EDX*/, out /*EBX*/, sregs /*ECX*/)	calls __int386 core 6f96c; returns out.eax. Game sites 69df7 and 6a340 use INT 31h
+6cf4f	stricmp	high	int stricmp(a /*EAX*/, b /*EDX*/)	bytewise, A-Z folded
+6cfb5	vsscanf	high	int vsscanf(str /*EAX*/, fmt /*EDX*/, va_list /*EBX*/)	get/unget callbacks 6cf88/6cfb1, then __scnf
+6cfdc	sscanf	high	int sscanf(str, fmt, ...) cdecl stack-only	wraps vsscanf; caller 6a2b4
+6cffe	__init_sstack_seg	medium	init pri 32; not_in_index	stores SS in 0x825e8 for __STK
+6d006	__CHK	high	PUSH size; CALL; RET 4; preserves regs	XCHG arg into EAX, __STK. All callers are 6a4da-6ad9d module + spawn; game otherwise has no stack probes
+6d019	__STK	high	size EAX	ESP-size vs 0x82908 _STACKLOW; SS vs 0x825e8; else overflow
+6d037	__STKOVERFLOW	high	noreturn	"Stack Overflow!" via __fatal_runtime_error status 1
+6d046	intr	high	void intr(int n /*EAX*/, union REGPACK *r /*EDX*/); tail JMP 6f9c9	REGPACK layout in 6f9c9/6fa16. Single caller 6a52b, n read from [[0x91eec]] at runtime. determinism: dynamic INT number via stub table 0x6fa4a, invisible to INT grep
+6d04b	strcpy	high	char *strcpy(dst /*EAX*/, src /*EDX*/)	2-at-a-time byte copy; returns dst
+6d06a	delay	high	void delay(unsigned ms /*EAX*/); tail JMP 708e9	Single caller 6a9a0 between sound/nosound. determinism: see 708e9
+6d06f	memcpy	high	void *memcpy(dst /*EAX*/, src /*EDX*/, n /*EBX*/)	REP MOVSD/MOVSB
+6d094	F8UnderFlow	medium	-> EDX:EAX=0	Returns +0; called on underflow from __FDM/__FDD. Name recalled from Watcom fp
+6d099	F8DivZero	high	sign EAX -> +-inf EDX:EAX	FPE code 0x83 through 6d3d3 then signed inf
+6d0a5	F8OverFlow	high	sign EAX -> +-inf EDX:EAX	__set_ERANGE, FPE code 0x84 then signed inf
+6d0ed	frexp	high	double frexp(double x /*EDX:EAX*/, int *e /*EBX*/)	exp & 0x7ff0 - 0x3fe, mantissa OR 0x3fe0
+6d140	__math1err	high	double f(unsigned code /*EAX*/, double *x /*EDX*/)	EBX=EDX, __math2err
+6d14a	__math2err	high	double f(code /*EAX*/, double *x /*EDX*/, double *y /*EBX*/)	builds struct exception type from code bits 0x40.. DOMAIN..; function name from 0x825fc table; calls 709f3
+6d230	__fprem	medium	cdecl: x(8,12) y(16,20) int *q(24) double *rem(28)	bit shift-subtract remainder with quotient; only caller 6b176. Name recalled
+6d329	_EvalPoly	medium	double f(x /*EDX:EAX*/, double *tbl /*EBX*/, int degree /*ECX*/)	Horner loop __FDM,__FDA. Name recalled
+6d35e	_OddPoly	medium	double f(x /*EDX:EAX*/, tbl /*EBX*/, degree /*ECX*/)	x * EvalPoly(x*x). Name recalled
+6d394	__FDN	medium	negate EDX:EAX (zero high word left unchanged)	XOR sign unless EDX=0
+6d39f	__set_EDOM	high	errno=13; EAX clobbered	MOV EAX,0xd; falls into __set_errno
+6d3a4	__set_errno	high	void f(int e /*EAX*/); preserves EDX	*__get_errno_ptr()=e; 0x96914
+6d3b0	__set_ERANGE	high	errno=14	MOV EAX,0xe; JMP __set_errno
+6d3c7	__set_doserrno	high	void f(int e /*EAX*/)	*__get_doserrno_ptr()=e; 0x96910
+6d3d3	__FPE_handler_call	medium	code EAX	CALL [0x82931] (default null 6ebac) = __FPE_handler ptr
+6d3e4	__cos87	medium	double cos on x87; EDX:EAX	AL=2 into sin87 body; determinism: FPTAN x87 path; name recalled, behavior high
+6d3ed	__sin87	medium	double sin on x87; EDX:EAX	FPREM by pi/4 constant, FPTAN, FSQRT, FDIV; determinism: x87 path; name recalled, behavior high
+6d486	__tan87	medium	double tan on x87; EDX:EAX	FLDPI, FPREM, FPTAN. Called from unindexed tan at 6b419. determinism: x87 path. Name recalled
+6d4f0	__STOSB	high	dst EAX, dword pattern EDX, count ECX -> EAX past	aligned head, __STOSD, tail; hits [EAX] first (Pentium cache probe)
+6d527	__STOSD	high	dst EAX, EDX, dwords ECX -> EAX past	32-byte aligned unrolled store with CMP to prefetch
+6d594	__wcpp_4_fatal_runtime_error_	medium	void f(const char *msg /*EAX*/, int status /*EDX*/) noreturn	same body as __fatal_runtime_error 7089a; only C++ EH callers. Suffix per coordinator list
+6d5b1	__init_fp_formatters	high	init pri 32; not_in_index	installs 70a55 in 0x82940, 70b7a in 0x82944
+6d5cc	isatty	high	int isatty(int fd /*EAX*/)	INT21 4400 DL&0x80
+6d5f1	__doserror_	low	code EAX, nonzero EDX means error	EDX!=0 -> __set_errno_dos; else return EAX. Only _dospawn. Name is a guess
+6d5f6	__set_errno_dos	high	int f(unsigned dos /*EAX*/) -> -1	sets _doserrno; DOS3 maps 0x50->0xe etc; table 0x82659 errno
+6d65c	__IOMode	high	unsigned f(int fd /*EAX*/)	bound 0x82674; table [0x826c8]; lazy isatty flag for fd<=5
+6d6b1	__SetIOMode	high	void f(int fd /*EAX*/, unsigned mode /*EDX*/)	stores table, sets 0x4000 init flag
+6d6c6	__prtf	high	int f(dest /*EAX*/, fmt /*EDX*/, va_list* /*EBX*/, putc /*ECX*/)	coordinator; confirmed: format loop, n specifier, zero/space pad, far ptr strings
+6d947	getprintspecs	medium	char *f(fmt /*EAX*/, va_list* /*EDX*/, specs* /*EBX*/)	width,*,prec,h l L w F N modifiers. Name recalled
+6da7a	evalflags	medium	char *f(fmt /*EAX*/, specs* /*EDX*/)	flags - # + space 0. Name recalled
+6dad5	far_strlen	medium	len f(offs /*EAX*/, seg /*DX*/, limit /*EBX*/)	ES-based bounded strlen. Name recalled
+6daf9	far_other_strlen	medium	len f(offs /*EAX*/, seg /*DX*/, limit /*EBX*/)	same but 16-bit chars. Name recalled
+6db1c	fmt4hex	medium	void f(v /*EAX*/, buf /*EDX*/, digits /*EBX*/)	itoa radix 16 left padded 0s; used by %p. Name recalled
+6db7d	FixedPoint_Format	medium	char *f(buf /*EAX*/, long v /*EDX*/, specs* /*EBX*/)	%hf 16.16 formatter. Name recalled
+6dc58	__efg_printf_dispatch	high	CALL [0x82940]	ptr = _EFG_Format 70a55, installed by unindexed init 6d5b1; default 70b8b "not loaded". Descriptive
+6dc5f	formstring	medium	char *f(buf /*EAX*/, va* /*EDX*/, specs* /*EBX*/, nullstr /*ECX*/)	specifier switch d i u o x X c s p e f g. Name recalled
+6e0a8	strupr	high	char *strupr(char *s /*EAX*/)	toupper loop in place; does not restore s in EAX; used by __prtf only for X and P
+6e0c0	__close	high	int f(int fd /*EAX*/)	INT21 3Eh; clears iomode; errno 4 on fail. No direct callers aside from JMP in 6be9a
+6e116	__wcpp_eh_init_c	low	init pri 10; not_in_index	[0x968f4]=0x828e0
+6e121	__wcpp_array_rw_init	low	init(obj /*EAX*/, rw /*EDX*/, sig /*EBX*/)	fills array registration, count=0, calls base register 6e154. Descriptive
+6e154	__wcpp_4_base_register_	low	register(rw /*EAX*/, EDX, EBX) -> &list	push on list 0x968c8. Name recalled, uncertain
+6e17e	__wcpp_4_base_deregister_	low	dereg(list /*EAX*/); preserves EDX	pops head of list. Name recalled, uncertain
+6e188	__wcpp_unwind_cmd	low	cmd f(state* /*EAX*/, EDX)	state table walk 70ce9, validates cmd 2..0xb, else 70d90. Descriptive
+6e1d2	__wcpp_ctor_cond_dtor	low	dtor f(sig/*EAX*/, flag/*EDX*/, base/*EBX*/, mask/*ECX*/)	if !(flags byte & mask) call dtor [+0xa] for a member. Descriptive
+6e21c	__wcpp_4_destruct_internal_	medium	void f(state /*EAX*/, rw /*EDX*/, EBX)	unwinder: jump table 0x6e1ec over 12 DTOR commands; EH; names recalled
+6e34c	__wcpp_4_destruct_	medium	void f(state /*EAX*/, rw /*EDX*/)	calls 6e21c EBX=0. Recalled
+6e356	__wcpp_4_destruct_all_	medium	no args	rw=[0x968c8], state=0. Recalled
+6e37c	__MemAllocator	high	void *f(size /*EAX*/, seg /*DX*/, heap /*EBX*/)	first-fit free list, split; sets used bit in size word
+6e424	__MemFree	high	void f(p /*EAX*/, seg /*DX*/, heap /*EBX*/)	coalesce both neighbors; sort insertion with bounded scan
+6e530	stackavail	high	-> EAX=ESP-_STACKLOW	ESP - [0x82908]
+6e539	__UnlinkNHeap	medium	void f(heap /*EAX*/)	remove from 0x825c0 list; fix rover 0x825c4. Name recalled
+6e578	__FreeDPMIBlocks	medium	no args	walks heaps, empty block -> INT31 0502 or INT21 49. Name recalled
+6e6c0	__LinkUpNewMHeap	medium	void *f(heap /*EAX*/)	address-sorted link, header init, sentinel -1. Name recalled
+6e734	__LastFree	medium	size -> EAX	largest free if adjacent to brk 0x828f8; LSL DS. Name recalled
+6e782	RationalAlloc	medium	void *f(size /*EAX*/)	__FreeDPMIBlocks; INT31 0501 alloc; INT21 48 fallback via 31/0006. Rational (DOS/4G) path. Recalled
+6e855	__CreateNewNHeap	medium	int __CreateNewNHeap(unsigned size /*EAX*/)	grow by new block, _nfree the region. Rational path uses 6e782; else INT21 AX=0x8000:48. Recalled
+6e904	__ExpandDGROUP	medium	int f(size /*EAX*/)	tests __Extender 0x82926; sbrk 71507 for non-rational; else __CreateNewNHeap. Recalled
+6ea48	__AdjustAmount	medium	int f(size* /*EAX*/)	round up, min [0x8294c] _amblksiz, page align. Recalled
+6eabf	__nmemneed	medium	-> EAX=0	default memory-need hook (called from malloc). Recalled
+6eac2	__CMain	high	no args	__ASTACK alloc at 0x82910/14, __CommonInit, CALL 0x38df4 main([0x9691c],[0x96920]), exit
+6eb12	__InitRtns	high	void f(int limit /*AL*/)	walks 0x82d9c-0x82df0 6-byte records, lowest priority first, marks done=2. Includes game ctors 0x2b064/0x38340/0x3989c at pri 64
+6eb5d	__FiniRtns	high	void f(lo /*AL*/, hi /*DL*/)	walks 0x82df0-0x82dfc highest priority first
+6ebac	__null_FPE_rtn	medium	no-op RET	Default [0x82931]. Name recalled
+6ebad	tolower	high	int tolower(int c /*EAX*/)	A-Z +0x20
+6ebbb	__allocfp	high	FILE *f(EAX ignored)	free list 0x96900, then __iob 0x826cc..0x828d4 step 0x1a, else malloc 0x22; memset 0x1a; list 0x96908
+6ec63	__freefp	high	void f(FILE *fp /*EAX*/)	moves node from 0x96908 to 0x96900
+6ecba	__update_buffer	medium	int f(off /*EAX*/, FILE* /*EDX*/)	seek within buffer test. Name recalled
+6ecfc	fseek	high	int fseek(FILE *fp /*EAX*/, long off /*EDX*/, int whence /*EBX*/)	flush dirty, buffer adjust, lseek
+6edf8	__chktty	high	void f(FILE* /*EAX*/)	isatty sets IOTTY(0x2000) and line buffering
+6ef6c	fgetc	high	int fgetc(FILE *fp /*EAX*/)	_cnt--, text CR skip, ^Z EOF
+6eff5	__filbuf	high	int f(FILE* /*EAX*/)	__fill_buffer then first char
+6f024	__fill_buffer	high	int f(FILE* /*EAX*/) -> count	__ioalloc, flush tty 71820, console via getche or __qread
+6f0e0	__fprtf	high	int f(FILE* /*EAX*/, fmt /*EDX*/, va_list* /*EBX*/)	bufferless temp, __prtf with fputc 6f0cf, flush
+6f165	__Init_Argv	medium	init pri 32; not_in_index	parses cmdline 0x828fc, mallocs argv table
+6f30c	__sqrt_soft	medium	double f(x /*EDX:EAX*/)	__iFDLD, 80-bit Newton, __iLDFD. Descriptive. determinism: soft sqrt path
+6f32a	__null_FPE_rtn2	medium	no-op RET	Called with AL/AH exception code from 6f3f7, 6f477 (FPE stub)
+6f32b	__sqrtd	low	void f(long_double *x /*EAX*/)	in-place 80-bit integer Newton sqrt; DIV loop. Name is a guess
+6f3f7	__iFDLD	medium	double EDX:EAX -> long_double *EBX	double to 80-bit expansion. Recalled
+6f477	__iLDFD	medium	long_double *EAX -> double EDX:EAX	80-bit to double with rounding. Recalled
+6f53e	unlink	high	int unlink(const char *path /*EAX*/)	INT21 41h; reached via 6cd10
+6f55d	segread	high	void segread(struct SREGS *s /*EAX*/)	stores es,cs,ss,ds,fs,gs
+6f585	getenv	high	char *getenv(const char *name /*EAX*/)	walks [0x82950] environ with strnicmp
+6f5df	__Slash_C	medium	char *f(char *buf /*EAX*/, flag /*DL*/)	DL or INT21 3700 switchar then "c". Recalled
+6f605	__file_exists	medium	int f(path /*EAX*/)	_dos_findfirst attr 7. Recalled
+6f624	__spawn_doexec	low	RET 4; int f(mode /*EAX*/, path /*EDX*/, argv /*EBX*/, env /*ECX*/, argv0* stack)	__ccmdline, _dospawn. Descriptive
+6f657	spawnve	high	int spawnve(mode /*EAX*/, path /*EDX*/, argv /*EBX*/, envp /*ECX*/)	__cenvarg, _splitpath2, .bat .com .exe tries; COMSPEC for .bat
+6f955	spawnlp	high	int spawnlp(mode, path, arg0, ...) cdecl stack-only	wraps spawnvp 71e56
+6f96c	__int386	high	int f(ESI=n, EDI=in, EDX=out, EBX=sregs)	loads regs from in via 6f9a4, stores to out incl CF
+6f9a4	__int386_load	medium	internal	pushes 0x6fa4a+3n stub; loads es,ds,regs; RET into stub
+6f9c9	__intr	high	void f(n /*EAX*/, REGPACK* /*EDX*/)	PUSHAD; stub table INT n; RET; writes regs and flags back. determinism: any INT via table
+6fa16	__intr_load	medium	internal	n*3+0x6fa4a; loads REGPACK fields
+6fd4a	__scnf	high	int f(src* /*EAX*/, fmt /*EDX*/, va_list* /*EBX*/)	sscanf engine; specifier switch; assignment count
+6ff6c	get_opt	medium	char *f(fmt /*EAX*/, specs* /*EDX*/)	*, width, N F h l L modifiers. Name recalled
+70045	scan_white	medium	count f(src* /*EAX*/)	skip ctype bit 2. Name recalled
+7007a	scan_char	medium	count f(src* /*EAX*/, va* /*EDX*/)	%c. Name recalled
+70100	scan_string	medium	count f(src* /*EAX*/, va* /*EDX*/)	%s. Name recalled
+701ee	report_scan	medium	void f(src* /*EAX*/, va* /*EDX*/, n /*EBX*/)	%n. Name recalled
+7024c	makelist	medium	char *f(scan /*EAX*/, bitset /*EDX*/)	%[ 32-byte bitset; memset; bit table 0x81898. Name recalled
+7028f	scan_arb	medium	count f(src* /*EAX*/, va* /*EDX*/, fmt** /*EBX*/)	%[...]. Name recalled
+70375	scan_float	medium	count f(src* /*EAX*/, va* /*EDX*/)	CALL [0x82944] = __cnvs2d 70b7a; __FDFS for float. Name recalled
+70653	scan_int	medium	count f(src* /*EAX*/, va* /*EDX*/, base /*EBX*/, sign /*ECX*/)	%d i o u x, 0x prefix. Name recalled
+7084b	radix_value	medium	int f(c /*EAX*/) -> 0-15, 16 bad	0-9 a-f via tolower. Recalled
+70872	cget	medium	int f(src* /*EAX*/)	width counted getc; -1 at EOF. Recalled
+70895	__exit_with_msg	high	void f(msg /*EAX*/, status /*EDX*/); JMP 6c84f	tail thunk
+7089a	__fatal_runtime_error	high	void f(msg /*EAX*/, status /*EDX*/)	__EnterWVIDEO, else __do_exit_with_msg__
+708b7	__delay_init	high	init pri 32; not_in_index	measures INT21 2Ch calls per one DH-second into [0x9690c]. determinism: wall-clock loop at startup up to ~2s
+708e9	delay	high	void delay(unsigned ms /*EAX*/) body	loops=(ms*[0x9690c]+500)/1000 calling INT21 2Ch; determinism: busy loop counted by INT21 2Ch calls; rate calibrated at startup by unindexed 708b7 over one wall-clock second tick, so host speed dependent
+7092a	__init_80x87	high	-; not_in_index	if x87, installs fnsave/frstor into 0x82980/84; 71e64 with CW word at 0x82988 (=0x127F). determinism: FPU setup
+70965	__init_8087	high	init pri 2; not_in_index	FNINIT, FNSTCW probe (high byte 3) sets _8087 0x825fc and _real87 0x825fd unless NO87. determinism: FPU detect, FNINIT
+709a5	__set_matherr	medium	handler EAX; not_in_index	stores to 0x82938
+709ab	__rterrmsg	medium	void f(code /*EAX*/, name /*EDX*/)	fputs(table 0x818a0[code]," in ",name,LF) to stderr. Recalled
+709f3	__matherr_dispatch	low	double f(exception* /*EAX*/)	CALL [0x82938] matherr; on 0 prints __rterrmsg and sets EDOM or ERANGE. Descriptive
+70a23	__get_errno_ptr	high	-> EAX=0x96914	returns &errno
+70a29	__get_doserrno_ptr	high	-> EAX=0x96910	returns &_doserrno
+70a2f	__EnterWVIDEO	medium	int f(msg far /*DX:EAX*/)	[0x8293c] debugger present -> INT3 with "WVIDEO" marker; else 0
+70a55	_EFG_Format	medium	char *f(buf /*EAX*/, va* /*EDX*/, specs* /*EBX*/)	double from va; calls 720ac then 70b32; installed in 0x82940 by 6d5b1 (via LEA imm, hence no callers)
+70b32	__fix_efg_alt	low	void f(s /*EAX*/, specs* /*EDX*/)	without # strips trailing 0 and "." for g/G. Descriptive
+70b7a	__cnvs2d	medium	str EAX, double* EDX; not_in_index	strtod with end=NULL; installed 0x82944
+70b8b	__F_NotLoaded	medium	noreturn	"Floating-point support not loaded" status 1; default in 0x82940/0x82944, overwritten. Descriptive
+70b9d	toupper	high	int toupper(int c /*EAX*/)	a-z -0x20
+70bcc	__wcpp_sig_size	low	size f(sig /*EAX*/)	switch on RTTI kind (table 0x70bac); indirect kind 2 at +1. Referenced from jump table. Descriptive
+70c10	__wcpp_state_entry	low	ptr f(rw /*EAX*/, n /*EDX*/)	via vtable 0x968ec; n*8-8. Descriptive
+70c3e	__wcpp_rwblock_init	low	void f(ctx /*EAX*/, rw /*EDX*/)	captures rw, state count; via vtable [0x968ec]. Descriptive
+70c5f	__wcpp_ctx_prev	low	ctx EAX	SUB [EAX+4],2. Descriptive
+70c64	__wcpp_state_prev	low	cmd f(ctx /*EAX*/, EBX)	back-walk with test-flag command 5 via 72448. Descriptive
+70ce9	__wcpp_state_cur	low	cmd f(ctx /*EAX*/)	resolves goto/test command chain. Descriptive
+70d7c	__wcpp_abort_state	low	noreturn	sets +0xc=3; JMP 72468 terminate. Descriptive
+70d90	__wcpp_stack_corrupted	high	noreturn	"stack data has been corrupted!" unique string
+70da1	__wcpp_catch_match	low	idx f(ctx /*EAX*/, n /*EDX*/, table /*EBX*/)	for each handler, 72476 type compare. Descriptive
+70e3d	__wcpp_eh_throw_region	low	-; not_in_index	70e3d-71500 C++ throw/catch runtime, not split into functions (no index entry); msgs 0x81540,0x81569,0x81591
+7142d	__wcpp_eh_init_d	low	init pri 1; not_in_index	[0x82998]=0x713a1
+71507	__brk	medium	void *__brk(unsigned newbrk /*EAX*/) -> old brk or -1	absolute target, not an increment (6e904 passes curbrk+size), so not sbrk; INT21 4A/ED resize via __Extender 0x82926; updates _curbrk 0x828f8; ENOMEM 5
+715c9	__CommonInit	low	no args	only sets _amblksiz [0x8294c]=0x8000; called from __CMain. Name is a guess
+715d4	__flush	high	int f(FILE* /*EAX*/)	dirty -> __qwrite; unread -> lseek back; resets ptr
+71693	__InitFiles	high	init pri 32; not_in_index	links std streams 0x826cc into 0x96908
+7170b	__full_io_exit	high	fini pri 32; not_in_index	closes all streams, frees free list
+717a4	__ioalloc	high	void f(FILE* /*EAX*/)	__chktty; size 0x86 tty, 1 unbuf, 0x1000 file; malloc or internal byte
+71820	__flushall	high	int f(mask /*EAX*/)	walks 0x96908 flushing matching flags
+7184f	getche	high	int getche(void)	ungetch [0x82918] or INT21 AH=1
+7186c	__qread	high	int f(fd /*EAX*/, buf /*EDX*/, n /*EBX*/)	INT21 3Fh
+7188b	fputc	high	int fputc(int c /*EAX*/, FILE *fp /*EDX*/)	text LF->CRLF, line and full buffering flushes
+71930	strnicmp	high	int strnicmp(a /*EAX*/, b /*EDX*/, n /*EBX*/)	folded compare with count
+71988	_dos_findfirst	high	unsigned f(path /*EAX*/, attr /*EDX*/, buf /*EBX*/)	INT21 1A, 4E
+719c4	__dos_find_copy_phar	medium	buf EDX; EBX preserved	Phar Lap (__Extender=9) DTA copy from ES:EBX. Descriptive
+71a0a	stpcpy	high	char *stpcpy(dst /*EAX*/, src /*EDX*/)	returns NUL position
+71a19	__cenvarg	medium	RET 0xc; f(argv /*EAX*/, envp /*EDX*/, char** /*EBX*/, ECX, stack)	sizes env + argv0, malloc, _amblksiz override, E2BIG 0x7e. Recalled
+71b51	__ccmdline	medium	void f(path /*EAX*/, argv /*EDX*/, buf /*EBX*/, shell /*ECX*/)	joins args, CR end, length byte. Recalled
+71ba6	_dospawn	high	cdecl f(mode, path, cmdline, env, argv)	Exec block 0x82958; INT21 4Bh, 4Dh, AH=0B flush; flag 0x82920
+71c74	strlen	high	size_t strlen(const char *s /*EAX*/)	REPNE SCASB
+71c8d	__copypart	low	char *f(out* /*EAX*/, buf /*EDX*/, start /*EBX*/, end /*ECX*/)	splitpath piece copy, 0x92 max. Descriptive
+71cd1	_splitpath2	high	RET 8; f(in /*EAX*/, buf /*EDX*/, drive** /*EBX*/, dir** /*ECX*/, fname**, ext**)	drive :, dir \ /, last . parsing
+71d5a	__null_save8087	medium	no-op RET	Default for [0x82980],[0x82984] Save8087/Rest8087 used in spawnve. Descriptive
+71d5b	__pcopy_slash	low	c /*AL*/, slash* /*EDX*/	remembers path separator. Descriptive
+71d6d	_makepath	high	RET 4; f(out /*EAX*/, drive /*EDX*/, dir /*EBX*/, name /*ECX*/, ext)	assembly of path string
+71e38	spawnl	high	int spawnl(mode, path, arg0, ...) cdecl stack-only	spawnve with environ [0x82950]. Called for .bat
+71e56	spawnvp	high	int spawnvp(mode /*EAX*/, path /*EDX*/, argv /*EBX*/)	spawnvpe with environ
+71e64	__init_real87_cw	high	CW AX; not_in_index	FNINIT; inf compare (287 vs 387 test -> 2 or 3); FNINIT; FLDCW from arg; returns type. determinism: the only FLDCW in decoded instructions; CW=0x127F (53-bit, nearest, all masked)
+71e8c	matherr	medium	int f(exception* /*EAX*/) -> 0	JMP 72976 returning 0. Default [0x82938]; settable by 709a5 __set_matherr-like
+71e91	__get_std_stream	high	FILE *f(n /*EAX*/)	0x826cc + n*26, n<=5
+71eb0	fputs	high	int fputs(const char *s /*EAX*/, FILE* /*EDX*/)	fputc loop; temp buffering
+71f37	__fmt_exponent	low	count f(out /*EAX*/, exp /*EDX*/, min /*EBX*/, room /*ECX*/)	sign plus digits. Descriptive
+71fde	__fmt_fixed_digits	low	char *f(out /*EAX*/, digits /*EDX*/, int /*EBX*/, frac /*ECX*/)	int part . frac. Descriptive
+72041	__fmt_justify	low	void f(buf /*EAX*/, len /*EDX*/, width /*EBX*/)	right justify, fill spaces. Descriptive
+720ac	__cfltcvt	low	RET 0x14; char *f(buf /*EAX*/, double* /*EDX*/, prec /*EBX*/, plus /*CL*/, width, ...)	e/f/g conversion core. Uses __FDI4, log10, floor, 72aba. Name is a guess
+7228e	strtod	high	double strtod(const char *s /*EAX*/, char **end /*EDX*/)	whitespace, sign, digits (17), exp D/E, ERANGE; called via 70b7a
+72448	__wcpp_bit_test	medium	AL f(bits /*EAX*/, n /*EDX*/)	mask byte table 0x82990. Descriptive
+72468	terminate_thunk	medium	JMP 72eec	tail. Descriptive
+7246d	__wcpp_sig_deref	low	sig EAX -> EAX	kind 2 indirect at +1. Descriptive
+72476	__wcpp_sig_compatible	low	int f(a /*EAX*/, b /*EDX*/, flag /*EBX*/)	signature equality, or modified kinds. Descriptive
+726e0	__null_rtn2	medium	no-op RET	Unreferenced no-op. Descriptive
+726e1	__qwrite	high	int f(fd /*EAX*/, buf /*EDX*/, n /*EBX*/)	INT21 42 END if append; 40h; short write errno 0xc
+7275d	__setenvp	high	init pri 32; not_in_index	builds environ 0x82950 from PSP env
+72832	__dos_cf_errno	medium	CF -> EAX	CF set -> __set_errno_dos, returns code. Descriptive
+72845	spawnvpe	high	int spawnvpe(mode /*EAX*/, path /*EDX*/, argv /*EBX*/, envp /*ECX*/)	spawnve, on ENOENT try PATH entries separated ";"
+72976	__return_zero	high	-> EAX=0	Default for matherr. Descriptive
+72979	__inf_nan_check	medium	int f(x /*EDX:EAX*/, char *buf /*EBX*/)	exp 0x7ff writes "inf"/"nan" with sign. Descriptive
+729f6	fabs	high	double fabs(double x /*EDX:EAX*/)	if negative -> __FDN
+72a11	log10	high	double log10(double x /*EDX:EAX*/)	error code 0xb if <=0; log(x)*0x3fdbcb7b1526e50e. Used inside %g only
+72a3b	floor	high	double floor(double x /*EDX:EAX*/)	modf; frac<0 -> add -1.0 (0xbff00000)
+72a74	__cvt_round_digits	low	RET 4; f(EAX, EDX, x /*ECX:EBX*/, bigint*)	scale, round, compare. Descriptive
+72aba	__scale10	medium	double f(x /*EDX:EAX*/, int e /*EBX*/)	pow-of-10 table 0x81914 repeated __FDM or __FDD; ldexp10-like. Descriptive
+72bda	__cvt	medium	RET 0xc; char *f(x /*EDX:EAX*/, prec /*EBX*/, exp* /*ECX*/, sign*, fmt, buf)	digit generator, 3/10 log approx, 17 digits max
+72dc0	_ModF	medium	void f(double *x /*EAX*/, double *int /*EDX*/)	bit-level integer/fraction split
+72e50	__ZBuf2F	medium	void f(digits /*EAX*/, double* /*EDX*/)	decimal digits accumulate into 53-bit double then normalize. Recalled
+72e9b	__normalize_fd	low	mantissa EDX:EAX, exp EDI	shift until 53-bit. Descriptive
+72eec	terminate	high	void terminate(void)	[0x968dc] handler; no handler: fatal msg or __exit(1); "return from terminate" unique string
+72f6c	strchr	high	char *strchr(const char *s /*EAX*/, int c /*EDX*/)	byte scan including NUL
+72f90	__log_err	medium	double f(x /*EDX:EAX*/, code /*EBX*/)	domain or sing error via __math1err. Descriptive
+72fd2	log	high	double log(double x /*EDX:EAX*/)	x<=0 error; FYL2X when x87 else frexp and rational poly 0x818dc/0x818f4. determinism: FP path selected by 0x825fd (_real87) - x87 vs soft
+73174	modf	high	double modf(double x /*EDX:EAX*/, double *ip /*EBX*/)	calls _ModF
+731a0	__CmpBigInt	medium	int f(n /*EAX*/, bigint* /*EDX*/)	compare 64-bit to table in code at 732b4 (powers of 10). Recalled
+731da	__Rnd2Int	medium	void f(double* /*EAX*/, bigint* /*EDX*/)	double to 64-bit, round half even. Recalled
+73245	__Bin2String	medium	void f(bigint* /*EAX*/, buf /*EDX*/, n /*EBX*/)	base 10000 DIV, AAM digits. Recalled
+732af	__p10_table_ptr	high	-> EDI	CALL 73364 / POP EDI over powers of 10 table at 732b4. NOT code past first insn: rest of the listing is decoded data
+73364	__p10_table_pop	high	POP EDI; RET	helper for 732af
+73366	__log87	medium	double log via FLDLN2,FYL2X	name recalled, behavior high. determinism: x87 path
