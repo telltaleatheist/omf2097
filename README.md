@@ -15,6 +15,10 @@ For an established open-source reimplementation, see
 
 ## What's here so far
 
+- `tools/build_analysis.sh` builds all the analysis output from your copy of the
+  game in one command: ELF image, Ghidra project, runtime names, calling
+  convention, decompiled export and module map. It always starts clean, so the
+  same game file gives byte-identical output.
 - `tools/le2elf.py` converts the game's DOS executable into an ELF image that
   Ghidra can load.
 - `tools/ghidra/ExportDecomp.java` exports per-function decompilation and an
