@@ -53,11 +53,20 @@ holds game logic and shares the fight's RNG (`docs/fight-loop.md`). So:
 - Keep the original order of RNG use, reseeds and hit tests within a tick.
 - Each tick reads one input per player. Presses between ticks are latched into
   the next tick's input, so short taps are not lost, online or offline.
-- Game speed (Owen, 2026-11-04): a speed setting chooses a fixed tick rate, tuned
-  by feel, with no tie to CPU speed. The original's speed was a wait after each
-  frame's work, so real speed also depended on the machine; that is not kept.
-  Online, both players use the lobby's speed. Original real-time timers in fight
-  logic (input windows, hit pause) become tick counts.
+- Time (Owen, 2026-11-04): nothing depends on CPU speed, cycle counts, video
+  timing or display refresh. Time is defined in whole milliseconds.
+  - The speed setting is the length of one simulation step, in ms, tuned by feel.
+    Online, both players use the lobby's value.
+  - The main loop uses a monotonic clock to decide when a step is due, and draws
+    at whatever rate the display runs. The clock never enters the simulation:
+    fight logic sees only step counts and the step length, so re-simulating gives
+    the same result on every machine.
+  - Durations that were real time in the original (input windows, hit pause) are
+    defined in ms and converted to steps with one fixed integer rule, so they keep
+    their real length at any speed.
+  - Per-step game values (movement, script frame lengths) stay per step, exactly
+    as in the data, so their arithmetic and hit results match the original. The
+    speed setting scales them as it did in the original.
 
 ## Reference: MW3
 
