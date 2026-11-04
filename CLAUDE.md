@@ -47,6 +47,9 @@ holds game logic and shares the fight's RNG (`docs/fight-loop.md`). So:
 - The indexed compositor is part of the simulation and must match exactly. SDL3
   only presents the finished picture. This is option A in `fight-loop.md`; a
   lighter hit mask is allowed later only if it is shown to give the same hits.
+- On-screen messages and debug text are drawn as an overlay outside the
+  simulated picture. In the original they land in the buffer hit tests read, so
+  a message shown on one machine only could change hits there.
 - Keep the original order of RNG use, reseeds and hit tests within a tick.
 - Each tick reads one input per player. Presses between ticks are latched into
   the next tick's input, so short taps are not lost, online or offline.
