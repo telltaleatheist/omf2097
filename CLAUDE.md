@@ -39,6 +39,20 @@ platform, x86-64 and arm64. So:
 - Two different tolerances. Rebuilt vs original: compared against the original,
   with how close is close enough decided per system. Machine vs machine: exact.
 
+## Fight structure
+
+Hit detection reads the composed 320x200 indexed picture, and the "draw" pass
+holds game logic and shares the fight's RNG (`docs/fight-loop.md`). So:
+
+- The indexed compositor is part of the simulation and must match exactly. SDL3
+  only presents the finished picture. This is option A in `fight-loop.md`; a
+  lighter hit mask is allowed later only if it is shown to give the same hits.
+- Keep the original order of RNG use, reseeds and hit tests within a tick.
+- Each tick reads one input per player. Presses between ticks are latched into
+  the next tick's input, so short taps are not lost, online or offline.
+- Rollback needs a fixed tick rate. The original has none: its speed setting is
+  a wait after each frame's work, so real speed also depended on the machine.
+
 ## Reference: MW3
 
 `/Volumes/Callisto/Projects/mw3-re` is Owen's finished rebuild of this kind.
