@@ -59,8 +59,15 @@ Do not reuse its float tolerance for anything machine-to-machine.
 - `game-original/` the game, read-only, never committed or published. The real
   program is `GAME/MASTER.DAT` (MZ+LE, Watcom C/C++32). Launch chain, from
   strings only: OMF.EXE -> SETUP.EXE -> FILE0001.EXE -> MASTER.DAT.
+- `tools/build_analysis.sh` rebuilds all of `analysis/` from the game file. It
+  deletes and recreates its output; its clean output is the canonical one.
 - `tools/le2elf.py` makes `analysis/master.elf`; object 1 at 0x10000, object 2
   at 0x80000, entry 0x6c5bc. Addresses in comments use this image.
+- `src/logic/` the game logic: plain C++ with no SDL or engine types. `rng.cpp`
+  is the pattern for ports, with `tests/differential/` running the original in
+  Unicorn against it and break tests proving the comparison catches errors.
+- `docs/` how things work, `docs/open-questions.md` what is unconfirmed,
+  `docs/discoveries.md` player-facing finds.
 - `analysis/ghidra/` the persistent Ghidra project (one writer at a time),
   `analysis/decomp/` per-function C and index, `analysis/modules.json` the
   module map (hints: many entries are inferred from address position).
