@@ -26,7 +26,9 @@ For an established open-source reimplementation, see
 - `tools/module_map.py` groups functions by the source file names embedded in
   the executable.
 - `src/logic/` holds the ported game logic, as a plain C++ library. So far that's
-  the random number generator (`docs/rng.md`).
+  the random number generator (`docs/rng.md`) and the exact sprite compositor
+  (`docs/formats.md`). `src/assets/` reads the game's files.
+- `compose_frame`, built with the rest, draws an arena and fighter frame to a PNG.
 - `tests/` has unit tests, plus differential tests that run the original code in
   an emulator against the port. Those need your copy of the game, a built
   analysis, and `python3 -m venv .venv && .venv/bin/pip install -r tests/requirements.txt`.

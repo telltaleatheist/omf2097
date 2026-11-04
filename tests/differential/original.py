@@ -43,7 +43,7 @@ class Original:
         self.uc.reg_write(UC_X86_REG_EFLAGS, 2)
         self.uc.reg_write(UC_X86_REG_ESP, STACK_TOP)
         self.uc.mem_write(STACK_TOP, struct.pack('<I', RETURN_TO))
-        self.uc.emu_start(addr, RETURN_TO, count=200000)
+        self.uc.emu_start(addr, RETURN_TO, count=50_000_000)
         return self.uc.reg_read(UC_X86_REG_EAX)
 
     def read(self, addr, size):

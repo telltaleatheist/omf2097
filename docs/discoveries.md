@@ -29,6 +29,8 @@ From the hit test at 0x215c8 (details: `fight-loop.md`).
 - **Hits are pixel-perfect, against the actual picture.** An attack is a set of points on the
   attacker's sprite, and it hits when a point lands on a pixel in the opponent's colours, in the
   picture composed for the frame.
+- **On-screen messages can block hits.** The message box is drawn into the picture hits are tested against, so during a message a point
+  inside the box misses. Found by tracing the code at 0x5cd80, not seen in play.
 - **Likely, player 2's body can get in the way of their own attacks.** Player 2 is normally drawn
   on top, so where the fighters overlap, player 2's points see their own pixels. Player 1 doesn't
   have this problem. How much this matters in a real fight hasn't been measured.

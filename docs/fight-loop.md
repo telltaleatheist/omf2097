@@ -85,9 +85,12 @@ Writes to the back buffer between composition and the tick's hit tests, as far a
 
 - **HUD region copies, 0x5efbc:** read. They copy from the back buffer to the display copy, and
   don't write the back buffer on the path read.
-- **On-screen messages, 0x5cd80**, from 0x5cea8: text through the font routine, which draws into
-  the back buffer. Not traced to the end. If they do land there, a message shown on one machine
-  only could change hits on that machine.
+- **On-screen messages, 0x5cd80**, from 0x5cea8, while the timer at 0x905e8 runs: they do land in the back buffer. Traced: the box
+  (0x29da4, through 0x5e8dc and 0x5ea94) and the text (0x34f24 and 0x3474c, whose destination is the font object's +0x18, which 0x56a10
+  sets to the back buffer) both write there, across x 40-280 near the bottom of the picture. The box darkens what's under it through file table 4 (0x8c67b),
+  which takes every fighter colour out of range, so an attack point inside it can't hit. The tick's tests and 0x21930's read it, and the background copy then removes it. So **a message
+  shown on one machine only can change hits on that machine.** The timer is set from 0x2c31c and 0x2db18 (network handling) and 0x2eac0.
+  The rebuild must draw these as an overlay, outside the simulation's picture.
 - **Debug frame-rate text**, step 23: through the same font routine.
 
 ### Can they be separated?
@@ -208,19 +211,18 @@ above 0x60 into 1-0x5f.
 | FIGHTR9 | 82 | 193 | 105,445 | 54 | 2,005 |
 | FIGHTR10 | 171 | 66 | 402,635 | 9 | 5,584 |
 
-Player 2's colours come from a draw mode (flag 0x800, routines 0x5a2b4 and 0x5a2d8) that adds
-0x30 to any source value below 0x30. How that flag gets set for player 2 looks like a field on
-the pilot (+0xf4), which is inferred. So:
+Player 2's colours are made when the fighter loads (0x5e198, see `formats.md`): every source value below 0x60 gets 0x30 added.
+So:
 
 - Most fighter pixels classify as their owner.
-- A source value of 0x60 and up is never a hit, for either player. Such pixels make up a sizeable
-  share of some files, and could be effects rather than bodies, which isn't separated here.
-- A rare source value in 0x30-0x5f counts as **player 2's colour even when drawn on player 1**.
-- Objects use the same drawing and classification, so an attack point landing on a projectile
-  or particle in its owner's colours counts as hitting the owner, with no check that it is a
-  fighter. Which particle sprites have which colours is an open static question.
-- ARENA4 has sprites with 37,131 pixels in 1-0x2f, and ARENA1 and ARENA3 have a few. Whether they
-  draw unmodified isn't known, but if so, a point landing on them registers as hitting player 1.
+- On player 1, a rare source value in 0x30-0x5f counts as **player 2's colour**.
+- On player 2, the same values move to 0x60 and up, and can't be hit. A stored 0 becomes 0x30, in player 2's range.
+- A source value of 0x60 and up is never a hit, for either player. Such pixels make up a sizeable share of some files, and could be
+  effects rather than bodies, which isn't separated here.
+- Objects use the same drawing and classification, so an attack point landing on a projectile or particle in its owner's colours counts
+  as hitting the owner, with no check that it is a fighter. Which particle sprites have which colours is an open static question.
+- ARENA4 has sprites with 37,131 pixels in 1-0x2f, and ARENA1 and ARENA3 have a few. Whether they draw unmodified isn't known, but if so,
+  a point landing on them registers as hitting player 1.
 
 **Overlaps: the later draw wins.** Normally player 1 is layer 0x1e and player 2 is 0x1f, so
 player 2 draws on top. Several conditions change it: +5 when the opponent has certain flags set,
@@ -236,20 +238,21 @@ be hit. The mechanism is verified. How much it matters in play isn't.
 |---|---|---|
 | The other fighter | Replaces with its own colours or above | No |
 | Objects, particles | Replaces with the sprite's value, if layered above | Partly: some spawns are gated by 0x8e5e2 bits 0x10 and 0x80 |
-| Shadows (0x5bc7c, flag 0x1000, y below 0xbf) | Uses the default remap table at 0x8c37b, which is file table 3. In every palette of all five arenas it leaves all 95 fighter colours unchanged and remaps the background. So a shadow appears to darken the arena and not the fighter. The differential test for the compositor will confirm how it is used | Shadow level is bits 2-3 of 0x8e5e2. Off at level 0. Flagged objects' shadows at level 2 and up. Level 3 also queues extra remap draws at layer 2, below fighters |
+| Shadows (0x5bc7c, flag 0x1000, y below 0xbf) | No change. Confirmed by running the original, at every level, in every palette of all five arenas, over a buffer of fighter colours. Shadows darken only the arena | Shadow level is bits 2-3 of 0x8e5e2. Off at level 0. Flagged objects' shadows at level 2 and up. Level 3 also queues extra remap draws at layer 2, below fighters |
 | Other remap draws (flag bits 0x10, 0xe0) | The flag selects a table at 0x8bf7b + index * 0x100. Indexes 1-4 are file tables 0-3, which keep all 95 fighter colours in range. Index 7 is file table 4, which moves all 95 out of range. Indexes 5 and 6 don't come from the file, and aren't characterised here | No, script-driven |
 | Additive (flag 0x200, 0x5a3d0) | Adds a scaled source value to the pixel, which can cross a range boundary | No, script-driven |
 | Blend (flag 0x400, 0x5a4b8, and flag 0x100, 0x5d300) | New value computed from source and destination | No, script-driven |
 | HUD (layer 15) | Below default fighter layers, so doesn't cover fighters. Can cover low-layer objects | No |
 | Arena foreground objects | Above fighters when their layer is. Values of 0x60 and up would block hits | Partly, through the same bits |
-| On-screen messages, debug text | See above, not traced to the end | Messages are local events |
+| On-screen messages | Box and text cover the fighter, and hits there miss. See above | Messages are local events |
+| Debug text | Through the same font routine | Debug only |
 
 The table mapping is verified from the arena loader (0x281b0): the first four file tables load at
 0x8c07b and the other 15 at 0x8c67b, so 0x8c37b is file table 3.
 
 **Correction.** An earlier version of this document took 0x8c37b to be file table 4, and so said that a
 shadowed pixel can't be hit and that differing shadow settings could desync two machines. Both claims
-are withdrawn. Which draws use file table 4 is still to be checked.
+are withdrawn. File table 4 is used by the message box (0x5e8dc). Which sprites use it, as remap index 7, is still to be checked.
 
 **Can the static answer settle it?** It settles what's possible, and the options below can be
 judged from it. It can't say how often each case happens. See "Questions for a real run".
@@ -277,8 +280,7 @@ the original's draw modes and order, including shadows, objects and the backgrou
 
 - Each fighter's source pixels, with the player 2 shift and the values that stay as they are.
 - Every object above or below fighters whose pixels fall in 1-0x5f or that cover a fighter.
-- Shadows only if the compositor's differential test shows they can change a fighter pixel. The default
-  table suggests they don't.
+- Shadows only where the pixel table marks a background colour. They don't change fighter pixels.
 - Additive, blend and remap modes, on anything that could end up in or leave those ranges.
 - Exact values wherever the pixel table has entries, which can include background values. So the
   background can be dropped from the mask only if the arena's scripts mark no background colours.
@@ -346,7 +348,7 @@ Reached from 0x63314, including its call to 0x608fc, and 0x37b80. These would ne
 
 | Setting | Address | Effect | Lock? |
 |---|---|---|---|
-| Shadow level (0-3) | 0x8e5e2 bits 2-3 | The default shadow table leaves fighter colours unchanged, so it may not affect hits | **Yes**, until the compositor's differential test confirms how it is used |
+| Shadow level (0-3) | 0x8e5e2 bits 2-3 | Run in the original, at every level and palette, shadows leave fighter colours unchanged. They do change background values, which can change results in arenas whose scripts use the pixel table | **Yes**, until the arena scan shows no script's marked colours can lie under a shadow |
 | Option at bit 7 | 0x8e5e2 | Gates hazard-type logic in 0x10010, 0x10280, 0x23c5c, also read in 0x3396c | **Yes** |
 | Option at bit 8 | 0x8e5e3 bit 0 | Read in fight logic at 0x11b3c, 0x1ed60, and in 0x3396c | **Yes**, until shown harmless |
 | Option at bit 6 | 0x8e5e2 | Read only in 0x27348, the display copy, so likely screen shake. Display only | No, if that holds |

@@ -21,7 +21,11 @@ See `fight-loop.md`. Static jobs that remain:
 - Which objects set the script flag that moves them by sin and cos, and whether they can hit.
 - Which particle and effect sprites use fighter colour ranges, and at which layers.
 - What the options at bits 6-8 and 15 of 0x8e5e2 are called, from `ENGLISH.DAT`.
-- Whether on-screen messages land in the back buffer.
+- Which sprites use remap index 7 (file table 4, which takes fighter colours out of range).
+
+## Questions only a real run can answer
+
+- The low byte of the back buffer's heap address, which the dither pattern uses. See `formats.md`.
 
 ## Possible bugs
 
@@ -38,6 +42,9 @@ To log for a decision, not fix. None confirmed.
   colours unchanged.
 - 0x8bb64 feeds object motion and is reset by a debug key combination, local to one machine.
 - A rare source pixel in 0x30-0x5f counts as player 2 even on player 1's sprite.
+- A shadow at level 3 on an empty placeholder sprite (`formats.md`) gives the original's memset a negative length, which would
+  crash it. Found under emulation. Whether the game ever asks for this isn't known. The port does nothing in that case.
+- A local on-screen message covers the fighters in the picture hit tests read (`fight-loop.md`).
 - The timer counter resets to 0 once it passes 0x7d00, about 220 seconds at the calculated
   rate. Durations measured with 0x55b60 across a reset may come out wrong.
 
