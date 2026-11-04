@@ -486,8 +486,8 @@ is ported.
   decoded game code outside known functions.** About 3,000 decoded instructions sit outside functions, in
   17 regions. Calls from undecoded bytes can't be excluded.
 - The largest region, 0x24af7-0x26853, has object-handling code much like 0x21930, including sin, cos, spawns
-  and hold tests, but no direct draws. Nothing jumps into it from outside, and its first bytes
-  (0x24a9f-0x24af6) aren't decoded, with no reference found to them. So it looks unused, like 0x337d4.
+  and hold tests, but no direct draws. Its undecoded start is a jump table at 0x24aa0 and a function prologue at
+  0x24ac0. No call, jump or pointer to 0x24ac0 was found. So it looks unused, like 0x337d4.
 - The call graph comes from direct calls plus the thunk table at 0x1e5c0. The object and fighter logic has few
   indirect calls, but they weren't each resolved.
 
