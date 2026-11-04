@@ -29,9 +29,6 @@ From the hit test at 0x215c8 (details: `fight-loop.md`).
 - **Hits are pixel-perfect, against the actual picture.** An attack is a set of points on the
   attacker's sprite, and it hits when a point lands on a pixel in the opponent's colours, in the
   picture composed for the frame.
-- **Shadows can protect you.** A shadow turns the pixels under it into non-fighter colours, so a
-  point landing on a shadowed part of a fighter misses. Turning shadows off could change this.
-  Likely rare, since shadows sit low on the screen.
 - **Likely, player 2's body can get in the way of their own attacks.** Player 2 is normally drawn
   on top, so where the fighters overlap, player 2's points see their own pixels. Player 1 doesn't
   have this problem. How much this matters in a real fight hasn't been measured.

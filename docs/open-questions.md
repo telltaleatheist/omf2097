@@ -32,8 +32,10 @@ To log for a decision, not fix. None confirmed.
   happen.
 - Player 2's own pixels can block player 2's attack points on player 1, at the default draw
   order. This one is likely a balance quirk to keep, not a bug, but it's listed for Owen.
-- The original copies only two bits of the settings at 0x8e5e2 between machines, not the shadow
-  level, though shadows can change hits. Two machines with different settings could desync.
+- The original copies only two bits of the settings at 0x8e5e2 between machines. Other settings could
+  differ between them, including bit 7, which gates fight logic. Whether that could desync them isn't
+  confirmed. The shadow level is probably not a cause, since the default shadow table leaves fighter
+  colours unchanged.
 - 0x8bb64 feeds object motion and is reset by a debug key combination, local to one machine.
 - A rare source pixel in 0x30-0x5f counts as player 2 even on player 1's sprite.
 - The timer counter resets to 0 once it passes 0x7d00, about 220 seconds at the calculated
