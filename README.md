@@ -25,6 +25,14 @@ For an established open-source reimplementation, see
   index of calls, strings and hardware access.
 - `tools/module_map.py` groups functions by the source file names embedded in
   the executable.
+- `src/logic/` holds the ported game logic, as a plain C++ library. So far that's
+  the random number generator (`docs/rng.md`).
+- `tests/` has unit tests, plus differential tests that run the original code in
+  an emulator against the port. Those need your copy of the game, a built
+  analysis, and `python3 -m venv .venv && .venv/bin/pip install -r tests/requirements.txt`.
+  Without them they report as skipped. Build and run with
+  `cmake -S . -B build && cmake --build build && ctest --test-dir build`.
+- `docs/discoveries.md` collects what the code reveals about how the game works.
 - `CLAUDE.md` records the project's decisions and design rules.
 
 ## License
