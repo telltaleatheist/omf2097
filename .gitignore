@@ -1,0 +1,34 @@
+# Never commit original game files or anything converted from them
+game-original/
+game/
+imported/
+*.exe
+*.dll
+*.AF
+*.BK
+*.PSM
+*.PIC
+*.TRN
+*.DAT
+*.dat
+*.chr
+*.rec
+*.REC
+
+# Decompiled output, Ghidra projects and converted images
+analysis/
+analysis-output/
+*.elf
+*.gpr
+*.rep/
+
+# Build
+build/
+build-*/
+.DS_Store
+
+# Local Python and agent state
+.venv/
+__pycache__/
+.cache/
+.claude/
