@@ -5,22 +5,23 @@ in `analysis/master.elf`.
 
 ## Timing and frame pacing
 
-Likely the next piece of work.
+Mostly answered in `fight-loop.md`, as calculated rather than measured values. Still open:
 
-- The timer interrupt handler at 0x38228 increments a 16-bit counter at 0x87268. The timer
-  reload is 0xffff divided by the 16-bit value at 0x81de0. That value is 8 in the image and
-  no direct write to it was found, which calculates to about 145.7 Hz. This hasn't been
-  measured.
-- 0x55b60 turns that counter into hundredths of a second, or uses INT 1Ah if the handler
-  isn't installed (0x8bb58 is 0).
-- **The wait that paces frames hasn't been found.** Readers of 0x87268 to look at first:
-  0x5f0c4, 0x5f380, 0x5f670, 0x5e500, 0x5e588, 0x3d850, 0x514f0, 0x11870. 0x2d428 and
-  0x65820 write it.
-- The game speed at 0x8e4e8 is limited to 0-19 by keys in the fight loop, and is copied
-  to the high half of 0x8bb72 (so 0x8bb74). The fight loop tests whether that copy is below
-  10 in two places, which may be part of pacing. How speed maps to a frame rate isn't known.
-- 0x337d4 looks like a second fight-style loop: same reseed and sync-check pattern, the
-  same frame counter. It has no direct callers. What it's for isn't known.
+- Real frame rates at each speed, and which machine counts as the reference.
+- How input timers that use real time should map to ticks, and what to do about input being
+  polled between ticks in local play but not in network play.
+- What the original's network wait does exactly (0x2db18).
+
+## Hit testing and the fight's structure
+
+See `fight-loop.md`. Static jobs that remain:
+
+- Which arenas' scripts fill the pixel table at object manager +0x20, and so which arena colours
+  trigger objects.
+- Which objects set the script flag that moves them by sin and cos, and whether they can hit.
+- Which particle and effect sprites use fighter colour ranges, and at which layers.
+- What the options at bits 6-8 and 15 of 0x8e5e2 are called, from `ENGLISH.DAT`.
+- Whether on-screen messages land in the back buffer.
 
 ## Possible bugs
 
@@ -29,6 +30,12 @@ To log for a decision, not fix. None confirmed.
 - Reads of registers that may be uninitialised on some path: 0x26854 (ESI), 0x1aae0 (DI),
   0x2f588 (EBP), 0x355e0 and 0x3d798 (ESI), 0x3eecc (SI). These could be paths that never
   happen.
+- Player 2's own pixels can block player 2's attack points on player 1, at the default draw
+  order. This one is likely a balance quirk to keep, not a bug, but it's listed for Owen.
+- The original copies only two bits of the settings at 0x8e5e2 between machines, not the shadow
+  level, though shadows can change hits. Two machines with different settings could desync.
+- 0x8bb64 feeds object motion and is reset by a debug key combination, local to one machine.
+- A rare source pixel in 0x30-0x5f counts as player 2 even on player 1's sprite.
 - The timer counter resets to 0 once it passes 0x7d00, about 220 seconds at the calculated
   rate. Durations measured with 0x55b60 across a reset may come out wrong.
 
