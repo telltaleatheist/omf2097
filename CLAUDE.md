@@ -12,7 +12,9 @@ with new internet play. Public, MIT: github.com/telltaleatheist/omf2097.
   is how it plays, not how the code was organised. No reproducing DOS-era
   techniques for their own sake.
 - Online: rollback, 1v1 fights only, working like the local shared-keyboard
-  2-player mode. Tournament stays offline.
+  2-player mode. Tournament stays offline. Either player can pause online and
+  it pauses for both, at an agreed frame. The pause runs no game logic, unlike
+  the original's pause paths, and settings that affect the fight are locked.
 - Bugs: fix crashes, hangs and desyncs. Keep balance quirks, exploits and odd
   move interactions. Anything in between goes to Owen. Every change from the
   original gets a plain-words line in CHANGES.md.
